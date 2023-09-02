@@ -35,8 +35,8 @@ func CreateCodec(alphabet string, blockSize int, minLength ...int) (*CodecConfig
 	}
 
 	cc.mapping = make([]int, blockSize)
-	for i := int(0); i < blockSize; i++ {
-		cc.mapping[i] = int(blockSize - 1 - i)
+	for i := 0; i < blockSize; i++ {
+		cc.mapping[i] = blockSize - 1 - i
 	}
 	return cc, nil
 }
@@ -50,28 +50,28 @@ func (cc *CodecConfig) StrToInt(x string) int {
 }
 
 func (cc *CodecConfig) encode(n int) int {
-	return (n & (^int(cc.mask))) | cc._encode(n&int(cc.mask))
+	return (n & (^cc.mask)) | cc._encode(n&cc.mask)
 }
 
 func (cc *CodecConfig) _encode(n int) int {
 	result := 0
 	for i, b := range cc.mapping {
-		if n&(1<<int(i)) != 0 {
-			result |= (1 << int(b))
+		if n&(1<<i) != 0 {
+			result |= (1 << b)
 		}
 	}
 	return result
 }
 
 func (cc *CodecConfig) decode(n int) int {
-	return (n & (^int(cc.mask))) | cc._decode(n&int(cc.mask))
+	return (n & (^cc.mask)) | cc._decode(n&cc.mask)
 }
 
 func (cc *CodecConfig) _decode(n int) int {
 	result := 0
 	for i, b := range cc.mapping {
-		if n&(1<<int(b)) != 0 {
-			result |= (1 << int(i))
+		if n&(1<<b) != 0 {
+			result |= (1 << i)
 		}
 	}
 	return result
