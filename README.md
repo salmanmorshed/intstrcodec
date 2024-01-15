@@ -10,27 +10,29 @@ go get github.com/salmanmorshed/intstrcodec
 ```
 
 - Example:
+
 ```go
 package main
 
 import (
 	"fmt"
 	"github.com/salmanmorshed/intstrcodec"
+	"log"
 )
 
 func main() {
 	alphabet := "mn6j2c4rv8bpygw95z7hsdaetxuk3fq"
 	blockSize := 24
+	minLength := 5
 
-	codec, err := CreateCodec(alphabet, blockSize)
+	codec, err := intstrcodec.Create(alphabet, blockSize, minLength)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "Failed to initialize codec:", err)
-		os.Exit(1)
+		log.Fatal("failed to initialize codec:", err)
 	}
 
 	original := 123
-	encoded := cc.IntToStr(original)
-	decoded := cc.StrToInt(encoded)
+	encoded := codec.IntToStr(original)
+	decoded := codec.StrToInt(encoded)
 
 	fmt.Printf("Original: %d, Encoded: %s, Decoded: %d\n", original, encoded, decoded)
 }

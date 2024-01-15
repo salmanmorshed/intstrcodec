@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-type CodecConfig struct {
+type IntStrCodec struct {
 	alphabet  string
 	blockSize int
 	minLength int
@@ -14,70 +14,67 @@ type CodecConfig struct {
 	mapping   []int
 }
 
-func CreateCodec(alphabet string, blockSize int, minLength ...int) (*CodecConfig, error) {
+func CreateCodec(alphabet string, blockSize int, minLength int) (*IntStrCodec, error) {
 	if len(alphabet) < 2 {
 		return nil, errors.New("alphabet must contain at least 2 characters")
 	}
 
-	if blockSize < 1 {
-		return nil, errors.New("blockSize should be a positive integer")
+	if blockSize < 0 {
+		return nil, errors.New("blockSize must be a positive integer")
 	}
 
-	cc := &CodecConfig{
+	cc := IntStrCodec{
 		alphabet:  alphabet,
 		blockSize: blockSize,
-		minLength: 5,
+		minLength: minLength,
 		mask:      (1 << blockSize) - 1,
+		mapping:   make([]int, blockSize),
 	}
 
-	if len(minLength) > 0 {
-		cc.minLength = minLength[0]
-	}
-
-	cc.mapping = make([]int, blockSize)
-	for i := 0; i < blockSize; i++ {
+	for i := range cc.mapping {
 		cc.mapping[i] = blockSize - 1 - i
 	}
-	return cc, nil
+
+	return &cc, nil
 }
 
-func (cc *CodecConfig) IntToStr(n int) string {
+func (cc *IntStrCodec) IntToStr(n int) string {
 	return cc.enbase(cc.encode(n))
 }
 
-func (cc *CodecConfig) StrToInt(x string) int {
+func (cc *IntStrCodec) StrToInt(x string) int {
 	return cc.decode(cc.debase(x))
 }
 
-func (cc *CodecConfig) encode(n int) int {
+func (cc *IntStrCodec) encode(n int) int {
 	return (n & (^cc.mask)) | cc._encode(n&cc.mask)
 }
 
-func (cc *CodecConfig) _encode(n int) int {
+func (cc *IntStrCodec) _encode(n int) int {
 	result := 0
 	for i, b := range cc.mapping {
 		if n&(1<<i) != 0 {
-			result |= (1 << b)
+			result |= 1 << b
 		}
 	}
 	return result
 }
 
-func (cc *CodecConfig) decode(n int) int {
+func (cc *IntStrCodec) decode(n int) int {
 	return (n & (^cc.mask)) | cc._decode(n&cc.mask)
 }
 
-func (cc *CodecConfig) _decode(n int) int {
+func (cc *IntStrCodec) _decode(n int) int {
 	result := 0
 	for i, b := range cc.mapping {
 		if n&(1<<b) != 0 {
-			result |= (1 << i)
+			result |= 1 << i
 		}
 	}
 	return result
 }
 
-func (cc *CodecConfig) enbase(x int) string {
+func (cc *IntStrCodec) enbase(x int) string {
 	result := cc._enbase(x)
 	paddingLength := cc.minLength - len(result)
 	if paddingLength <= 0 {
@@ -87,7 +84,7 @@ func (cc *CodecConfig) enbase(x int) string {
 	return padding + result
 }
 
-func (cc *CodecConfig) _enbase(x int) string {
+func (cc *IntStrCodec) _enbase(x int) string {
 	n := len(cc.alphabet)
 	if x < n {
 		return string(cc.alphabet[x])
@@ -95,12 +92,18 @@ func (cc *CodecConfig) _enbase(x int) string {
 	return cc._enbase(x/n) + string(cc.alphabet[x%n])
 }
 
-func (cc *CodecConfig) debase(x string) int {
+func (cc *IntStrCodec) debase(x string) int {
 	n := len(cc.alphabet)
 	result := 0
 	for i := len(x) - 1; i >= 0; i-- {
 		c := x[i]
-		result += strings.IndexByte(cc.alphabet, c) * int(math.Pow(float64(n), float64(len(x)-1-i)))
+		result += strings.IndexByte(cc.alphabet, c) * intPow(n, len(x)-1-i)
 	}
 	return result
+}
+
+func intPow(a, b int) int {
+	// the margin of error introduced due to floating point calculations in this function becomes large enough to
+	// cause the codec to break for input values beyond 2^55. todo: explore possible solutions
+	return int(math.Pow(float64(a), float64(b)))
 }
