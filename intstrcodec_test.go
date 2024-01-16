@@ -29,7 +29,7 @@ func TestEncodeDecodeRanges(t *testing.T) {
 		{start: 1000000000000, end: 1000000001000},
 		{start: 100000000000000, end: 100000000001000},
 		{start: 10000000000000000, end: 10000000000001000},
-		// upper bound of input value in current implementation is 2^55
+		{start: 9223372036854774806, end: 9223372036854775806},
 	}
 
 	for _, r := range ranges {
