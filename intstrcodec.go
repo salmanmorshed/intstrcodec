@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-type IntStrCodec struct {
+type Codec struct {
 	alphabet  string
 	blockSize int
 	minLength int
@@ -14,7 +14,7 @@ type IntStrCodec struct {
 	mapping   []int
 }
 
-func CreateCodec(alphabet string, blockSize int, minLength int) (*IntStrCodec, error) {
+func CreateCodec(alphabet string, blockSize int, minLength int) (*Codec, error) {
 	if len(alphabet) < 2 {
 		return nil, errors.New("alphabet must contain at least 2 characters")
 	}
@@ -23,7 +23,7 @@ func CreateCodec(alphabet string, blockSize int, minLength int) (*IntStrCodec, e
 		return nil, errors.New("blockSize must be a positive integer")
 	}
 
-	cc := IntStrCodec{
+	cc := Codec{
 		alphabet:  alphabet,
 		blockSize: blockSize,
 		minLength: minLength,
@@ -38,19 +38,19 @@ func CreateCodec(alphabet string, blockSize int, minLength int) (*IntStrCodec, e
 	return &cc, nil
 }
 
-func (cc *IntStrCodec) IntToStr(n int) string {
+func (cc *Codec) IntToStr(n int) string {
 	return cc.enbase(cc.encode(n))
 }
 
-func (cc *IntStrCodec) StrToInt(x string) int {
+func (cc *Codec) StrToInt(x string) int {
 	return cc.decode(cc.debase(x))
 }
 
-func (cc *IntStrCodec) encode(n int) int {
+func (cc *Codec) encode(n int) int {
 	return (n & (^cc.mask)) | cc._encode(n&cc.mask)
 }
 
-func (cc *IntStrCodec) _encode(n int) int {
+func (cc *Codec) _encode(n int) int {
 	result := 0
 	for i, b := range cc.mapping {
 		if n&(1<<i) != 0 {
@@ -60,11 +60,11 @@ func (cc *IntStrCodec) _encode(n int) int {
 	return result
 }
 
-func (cc *IntStrCodec) decode(n int) int {
+func (cc *Codec) decode(n int) int {
 	return (n & (^cc.mask)) | cc._decode(n&cc.mask)
 }
 
-func (cc *IntStrCodec) _decode(n int) int {
+func (cc *Codec) _decode(n int) int {
 	result := 0
 	for i, b := range cc.mapping {
 		if n&(1<<b) != 0 {
@@ -74,7 +74,7 @@ func (cc *IntStrCodec) _decode(n int) int {
 	return result
 }
 
-func (cc *IntStrCodec) enbase(x int) string {
+func (cc *Codec) enbase(x int) string {
 	result := cc._enbase(x)
 	paddingLength := cc.minLength - len(result)
 	if paddingLength <= 0 {
@@ -84,7 +84,7 @@ func (cc *IntStrCodec) enbase(x int) string {
 	return padding + result
 }
 
-func (cc *IntStrCodec) _enbase(x int) string {
+func (cc *Codec) _enbase(x int) string {
 	n := len(cc.alphabet)
 	if x < n {
 		return string(cc.alphabet[x])
@@ -92,7 +92,7 @@ func (cc *IntStrCodec) _enbase(x int) string {
 	return cc._enbase(x/n) + string(cc.alphabet[x%n])
 }
 
-func (cc *IntStrCodec) debase(x string) int {
+func (cc *Codec) debase(x string) int {
 	n := len(cc.alphabet)
 	result := 0
 	for i := len(x) - 1; i >= 0; i-- {
