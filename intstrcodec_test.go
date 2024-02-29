@@ -9,11 +9,10 @@ import (
 const (
 	alphabet  = "mn6j2c4rv8bpygw95z7hsdaetxuk3fq"
 	blockSize = 20
-	minLength = 5
 )
 
 func TestEncodeDecodeRanges(t *testing.T) {
-	codec, err := CreateCodec(alphabet, blockSize, minLength)
+	codec, err := New(alphabet, blockSize, WithIntPowerFn(CustomIntPower))
 	if err != nil {
 		t.Fatal("failed to initialize codec")
 	}
@@ -47,7 +46,7 @@ func TestEncodeDecodeRanges(t *testing.T) {
 
 func TestMinLength(t *testing.T) {
 	for ml := 4; ml <= 32; ml++ {
-		codec, err := CreateCodec(alphabet, blockSize, ml)
+		codec, err := New(alphabet, blockSize, WithMinLength(ml))
 		if err != nil {
 			t.Fatalf("Failed to create codec: %v", err)
 		}
@@ -62,8 +61,21 @@ func TestMinLength(t *testing.T) {
 	}
 }
 
-func BenchmarkEncodeDecode(b *testing.B) {
-	cc, err := CreateCodec(alphabet, blockSize, minLength)
+func BenchmarkEncodeDecodeUsingNativePowerFn(b *testing.B) {
+	cc, err := New(alphabet, blockSize)
+	if err != nil {
+		b.Fatalf("Failed to create codec: %v", err)
+	}
+
+	for i := 0; i < b.N; i++ {
+		input := rand.Intn(1000000000)
+		encoded := cc.IntToStr(input)
+		cc.StrToInt(encoded)
+	}
+}
+
+func BenchmarkEncodeDecodeUsingCustomPowerFn(b *testing.B) {
+	cc, err := New(alphabet, blockSize, WithIntPowerFn(CustomIntPower))
 	if err != nil {
 		b.Fatalf("Failed to create codec: %v", err)
 	}
