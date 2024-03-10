@@ -7,12 +7,12 @@ import (
 )
 
 const (
-	alphabet  = "mn6j2c4rv8bpygw95z7hsdaetxuk3fq"
-	blockSize = 20
+	alphabet  = "bkus2y8ng9dch5xam3t6r7pqe4zfwjv"
+	blockSize = 10
 )
 
 func TestEncodeDecodeRanges(t *testing.T) {
-	codec, err := New(alphabet, blockSize, WithIntPowerFn(CustomIntPower))
+	codec, err := New(alphabet, blockSize)
 	if err != nil {
 		t.Fatal("failed to initialize codec")
 	}
@@ -28,61 +28,31 @@ func TestEncodeDecodeRanges(t *testing.T) {
 		{start: 1000000000000, end: 1000000001000},
 		{start: 100000000000000, end: 100000000001000},
 		{start: 10000000000000000, end: 10000000000001000},
-		{start: 9223372036854774806, end: 9223372036854775806},
+		{start: 9223372036854774807, end: 9223372036854775807},
 	}
 
 	for _, r := range ranges {
-		for i := r.start; i <= r.end; i++ {
-			t.Run(fmt.Sprintf("Test IntToStr and StrToInt with input %d", i), func(t *testing.T) {
-				encoded := codec.IntToStr(i)
-				decoded := codec.StrToInt(encoded)
-				if decoded != i {
-					t.Errorf("Decode failed: input=%d, encoded=%s, decoded=%d", i, encoded, decoded)
+		for input := r.start; input < r.end; input++ {
+			t.Run(fmt.Sprintf("test encode and decode with input %d", input), func(t *testing.T) {
+				encoded := codec.Encode(input)
+				decoded := codec.Decode(encoded)
+				if decoded != input {
+					t.Errorf("decode failed: input=%d, encoded=%s, decoded=%d", input, encoded, decoded)
 				}
 			})
 		}
 	}
 }
 
-func TestMinLength(t *testing.T) {
-	for ml := 4; ml <= 32; ml++ {
-		codec, err := New(alphabet, blockSize, WithMinLength(ml))
-		if err != nil {
-			t.Fatalf("Failed to create codec: %v", err)
-		}
-
-		for i := 0; i < 10; i++ {
-			input := rand.Intn(100)
-			encoded := codec.IntToStr(input)
-			if len(encoded) < ml {
-				t.Errorf("Failed: Expected padded length %d, got %d", ml, len(encoded))
-			}
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeUsingNativePowerFn(b *testing.B) {
+func BenchmarkEncodeDecode(b *testing.B) {
 	cc, err := New(alphabet, blockSize)
 	if err != nil {
-		b.Fatalf("Failed to create codec: %v", err)
+		b.Fatalf("failed to initialize codec: %v", err)
 	}
 
 	for i := 0; i < b.N; i++ {
 		input := rand.Intn(1000000000)
-		encoded := cc.IntToStr(input)
-		cc.StrToInt(encoded)
-	}
-}
-
-func BenchmarkEncodeDecodeUsingCustomPowerFn(b *testing.B) {
-	cc, err := New(alphabet, blockSize, WithIntPowerFn(CustomIntPower))
-	if err != nil {
-		b.Fatalf("Failed to create codec: %v", err)
-	}
-
-	for i := 0; i < b.N; i++ {
-		input := rand.Intn(1000000000)
-		encoded := cc.IntToStr(input)
-		cc.StrToInt(encoded)
+		encoded := cc.Encode(input)
+		cc.Decode(encoded)
 	}
 }

@@ -1,9 +1,20 @@
 # intstrcodec
 
-`intstrcodec` provides a standalone codec that encodes/decodes integers to/from strings using a custom alphabet and 
-bit-shuffling approach. It's a Golang port of the encoder used in the popular `short_url` Python package. Explanation 
-of the original algorithm can be found here: http://code.activestate.com/recipes/576918/
+`intstrcodec` encodes positive integers into *seemingly* random strings. These strings can be decoded back into
+the original integer values. The intended use case of the codec is to generate URL keys that are derived from 
+numeric values (serial primary keys of a database table, for example) and have them *look* like random strings.
 
+The transformation process has some important properties:
+
+1. The encode and decode process is deterministic.
+2. There are no collisions between encoded string values.
+3. Strings derived from sequential numbers exhibit no common tail patterns.
+
+Thanks to these properties, it is possible to keep the internal numeric values secret and use the string values
+as public facing keys, given that the alphabet and blockSize are not exposed.
+
+It's important to note that this library does not employ any cryptographically sane technique and not a good choice
+for any application that requires confidentiality. It is essentially an obfuscation technique.
 
 ## Usage
 
@@ -29,40 +40,20 @@ func main() {
 
 	codec, err := intstrcodec.New(alphabet, blockSize)
 	if err != nil {
-		log.Fatal("failed to initialize codec:", err)
+		log.Fatalln("failed to initialize codec:", err)
 	}
 
 	original := 123
-	encoded := codec.IntToStr(original)
-	decoded := codec.StrToInt(encoded)
+	encoded := codec.Encode(original)
+	decoded := codec.Decode(encoded)
 
-	fmt.Printf("Original: %d, Encoded: %s, Decoded: %d\n", original, encoded, decoded)
+	fmt.Printf("original=%d, encoded=%s, decoded=%d\n", original, encoded, decoded)
 }
 ```
 
-### Custom Options
-```go
-package main
-
-import "github.com/salmanmorshed/intstrcodec"
-
-func main() {
-	_, _ = intstrcodec.New(
-		"bkus2y8ng9dch5xam3t6r7pqe4zfwjv", 24,
-
-		// Set the minimum length of output string to 5
-		intstrcodec.WithMinLength(5),
-
-		// Use a custom implementation of integer power calculation
-		intstrcodec.WithIntPowerFn(intstrcodec.CustomIntPower),
-	)
-}
-```
-
-#### Note on `WithIntPowerFn(CustomIntPower)`
-The native golang math.Pow function introduces floating point error in the calculations which causes the codec to 
-break for inputs beyond 2^55. This implementation manually calculates the power value using int only which allows 
-the codec to successfully decode to the max value of int64. Measured performance difference is approximately 12%.
+## Acknowledgement
+The transformation technique this codec employs is directly taken from this python recipe by Michael Fogleman: 
+http://code.activestate.com/recipes/576918/
 
 ## License
 This project is licensed under the [MIT License](https://github.com/git/git-scm.com/blob/main/MIT-LICENSE.txt). 

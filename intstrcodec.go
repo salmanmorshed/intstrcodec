@@ -2,44 +2,25 @@ package intstrcodec
 
 import (
 	"errors"
-	"log"
-	"math"
+	"slices"
 	"strings"
 )
-
-const defaultMinLength = 5
-
-type IntPowFn func(int, int) int
 
 type Codec struct {
 	alphabet  string
 	blockSize int
-	minLength int
-	mask      int
-	mapping   []int
-	intPowFn  func(int, int) int
+	blockMask int
 }
 
-type OptFn func(*Codec)
-
-func WithMinLength(ml int) OptFn {
-	if ml < 1 {
-		log.Fatalln("minimum length value should be greater than zero")
-	}
-	return func(cc *Codec) {
-		cc.minLength = ml
-	}
-}
-
-func WithIntPowerFn(pf IntPowFn) OptFn {
-	return func(cc *Codec) {
-		cc.intPowFn = pf
-	}
-}
-
-func New(alphabet string, blockSize int, optFns ...OptFn) (*Codec, error) {
+func New(alphabet string, blockSize int) (*Codec, error) {
 	if len(alphabet) < 2 {
 		return nil, errors.New("alphabet must contain at least 2 characters")
+	}
+
+	for _, r := range alphabet {
+		if r >= 128 {
+			return nil, errors.New("alphabet must contain only ASCII characters")
+		}
 	}
 
 	if blockSize < 0 {
@@ -49,99 +30,55 @@ func New(alphabet string, blockSize int, optFns ...OptFn) (*Codec, error) {
 	cc := Codec{
 		alphabet:  alphabet,
 		blockSize: blockSize,
-		minLength: defaultMinLength,
-		mask:      (1 << blockSize) - 1,
-		mapping:   make([]int, blockSize),
-		intPowFn:  NativeIntPower,
-	}
-
-	for i := range cc.mapping {
-		cc.mapping[i] = blockSize - 1 - i
-	}
-
-	for _, optFunc := range optFns {
-		optFunc(&cc)
+		blockMask: (1 << blockSize) - 1,
 	}
 
 	return &cc, nil
 }
 
-func (cc *Codec) IntToStr(n int) string {
-	return cc.enbase(cc.encode(n))
+func (cc *Codec) Encode(inputInt int) string {
+	return cc.convertToBaseN(cc.reverseLowerBlock(inputInt))
 }
 
-func (cc *Codec) StrToInt(x string) int {
-	return cc.decode(cc.debase(x))
+func (cc *Codec) Decode(encodedStr string) int {
+	return cc.reverseLowerBlock(cc.convertToBase10(encodedStr))
 }
 
-func (cc *Codec) encode(n int) int {
-	return (n & (^cc.mask)) | cc._encode(n&cc.mask)
+func (cc *Codec) reverseLowerBlock(n int) int {
+	return (n & (^cc.blockMask)) | cc.reverseZeroPaddedBits(n&cc.blockMask)
 }
 
-func (cc *Codec) _encode(n int) int {
-	result := 0
-	for i, b := range cc.mapping {
-		if n&(1<<i) != 0 {
-			result |= 1 << b
-		}
+func (cc *Codec) reverseZeroPaddedBits(num int) int {
+	var reversed int
+	for range cc.blockSize {
+		lastBit := num & 1
+		reversed = reversed << 1
+		reversed |= lastBit
+		num >>= 1
 	}
-	return result
+	return reversed
 }
 
-func (cc *Codec) decode(n int) int {
-	return (n & (^cc.mask)) | cc._decode(n&cc.mask)
-}
-
-func (cc *Codec) _decode(n int) int {
-	result := 0
-	for i, b := range cc.mapping {
-		if n&(1<<b) != 0 {
-			result |= 1 << i
-		}
+func (cc *Codec) convertToBaseN(value10 int) string {
+	var result strings.Builder
+	var bytes []uint8
+	baseN := len(cc.alphabet)
+	for value10 > 0 {
+		rem := value10 % baseN
+		bytes = append(bytes, cc.alphabet[rem])
+		value10 /= baseN
 	}
-	return result
+	slices.Reverse(bytes)
+	result.Write(bytes)
+	return result.String()
 }
 
-func (cc *Codec) enbase(x int) string {
-	result := cc._enbase(x)
-	paddingLength := cc.minLength - len(result)
-	if paddingLength <= 0 {
-		return result
-	}
-	padding := strings.Repeat(string(cc.alphabet[0]), paddingLength)
-	return padding + result
-}
-
-func (cc *Codec) _enbase(x int) string {
-	n := len(cc.alphabet)
-	if x < n {
-		return string(cc.alphabet[x])
-	}
-	return cc._enbase(x/n) + string(cc.alphabet[x%n])
-}
-
-func (cc *Codec) debase(x string) int {
-	n := len(cc.alphabet)
-	result := 0
-	for i := len(x) - 1; i >= 0; i-- {
-		c := x[i]
-		result += strings.IndexByte(cc.alphabet, c) * cc.intPowFn(n, len(x)-1-i)
-	}
-	return result
-}
-
-func NativeIntPower(base, exponent int) int {
-	return int(math.Pow(float64(base), float64(exponent)))
-}
-
-func CustomIntPower(base, exponent int) int {
-	result := 1
-	if exponent < 0 {
-		return NativeIntPower(base, exponent)
-	}
-	for exponent > 0 {
-		result *= base
-		exponent--
+func (cc *Codec) convertToBase10(valueN string) int {
+	var result int
+	baseN := len(cc.alphabet)
+	for _, char := range []byte(valueN) {
+		result *= baseN
+		result += strings.IndexByte(cc.alphabet, char)
 	}
 	return result
 }
